@@ -6,3 +6,6 @@ coverage.out
 
 /node_modules
 /assets
+
+# test artifacts
+pkg/server/http/accounts-store/

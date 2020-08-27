@@ -11,6 +11,7 @@ require (
 	github.com/cs3org/reva v0.1.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1
+	github.com/golang/protobuf v1.4.2
 	github.com/micro/cli/v2 v2.1.2
 	github.com/micro/go-micro/v2 v2.6.0
 	github.com/oklog/run v1.1.0
@@ -22,6 +23,7 @@ require (
 	github.com/restic/calens v0.2.0
 	github.com/rs/zerolog v1.19.0 // indirect
 	github.com/spf13/viper v1.7.0
+	github.com/stretchr/testify v1.6.0
 	go.opencensus.io v0.22.4
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
