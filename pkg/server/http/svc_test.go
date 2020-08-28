@@ -35,11 +35,11 @@ type Response interface {
 var service = grpc.Service{}
 
 var DefaultUsers = []string{
-  "4c510ada-c86b-4815-8820-42cdf82c3d51",
-  "820ba2a1-3f54-4538-80a4-2d73007e30bf",
-  "932b4540-8d16-481e-8ef4-588e4b6b151c",
-  "bc596f3c-c955-4328-80a0-60d018b4ad57",
-  "f7fbf8c8-139b-4376-b307-cf0a8c2d0d9c",
+	"4c510ada-c86b-4815-8820-42cdf82c3d51",
+	"820ba2a1-3f54-4538-80a4-2d73007e30bf",
+	"932b4540-8d16-481e-8ef4-588e4b6b151c",
+	"bc596f3c-c955-4328-80a0-60d018b4ad57",
+	"f7fbf8c8-139b-4376-b307-cf0a8c2d0d9c",
 }
 
 type User struct {
@@ -57,15 +57,15 @@ func (u *User) getUserRequestString() string {
 	res := fmt.Sprintf("userid=%v&username=%v&email=%v", u.ID, u.Username, u.Email)
 
 	if u.Displayname != "" {
-		res = res + "&displayname=" + string(u.Displayname)
+		res = res + "&displayname=" + fmt.Sprint(u.Displayname)
 	}
 
 	if u.UIDNumber != 0 {
-		res = res + "&uidnumber=" + string(u.UIDNumber)
+		res = res + "&uidnumber=" + fmt.Sprint(u.UIDNumber)
 	}
 
 	if u.GIDNumber != 0 {
-		res = res + "&gidnumber=" + string(u.GIDNumber)
+		res = res + "&gidnumber=" + fmt.Sprint(u.GIDNumber)
 	}
 
 	return res
@@ -92,22 +92,22 @@ type SingleUserResponse struct {
 
 type GetUsersResponse struct {
 	Meta Meta `json:"meta"`
-	Data struct{
-    Users []string `json:"users"`
-  } `json:"data"`
+	Data struct {
+		Users []string `json:"users"`
+	} `json:"data"`
 }
 
 type GetUsersResponses struct {
 	Meta Meta `json:"meta"`
-	Data struct{
-    Users []User `json:"users"`
-  } `json:"data"`
+	Data struct {
+		Users []User `json:"users"`
+	} `json:"data"`
 }
 
 type DeleteUserRespone struct {
 	Meta Meta `json:"meta"`
-	Data struct{
-  } `json:"data"`
+	Data struct {
+	} `json:"data"`
 }
 
 func assertResponseMeta(t *testing.T, expected, actual Meta) {
@@ -175,24 +175,24 @@ func init() {
 func cleanUp(t *testing.T) {
 	datastore := filepath.Join(dataPath, "accounts")
 
-  files, err := ioutil.ReadDir(datastore)
-  if err != nil {
-      log.Fatal(err)
-  }
+	files, err := ioutil.ReadDir(datastore)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  for _, f := range files {
-    found := false
-    for _, defUser := range DefaultUsers {
-      if f.Name() == defUser {
-        found = true
-        break
-      }
-    }
+	for _, f := range files {
+		found := false
+		for _, defUser := range DefaultUsers {
+			if f.Name() == defUser {
+				found = true
+				break
+			}
+		}
 
-    if !found {
-      deleteAccount(t, f.Name())
-    }
-  }
+		if !found {
+			deleteAccount(t, f.Name())
+		}
+	}
 }
 
 func sendRequest(method, endpoint, body, auth string) (*httptest.ResponseRecorder, error) {
@@ -238,16 +238,16 @@ func getService() svc.Service {
 }
 
 func createUser(u User) error {
-  _, err := sendRequest(
-    "POST",
-    "/v1.php/cloud/users?format=json",
-    u.getUserRequestString(),
-    "admin:admin",
-  )
+	_, err := sendRequest(
+		"POST",
+		"/v1.php/cloud/users?format=json",
+		u.getUserRequestString(),
+		"admin:admin",
+	)
 
-  if err != nil {
-  }
-  return nil
+	if err != nil {
+	}
+	return nil
 }
 
 func TestCreateUser(t *testing.T) {
@@ -278,11 +278,7 @@ func TestCreateUser(t *testing.T) {
 				UIDNumber:   20027,
 				GIDNumber:   30000,
 			},
-			&Meta{
-				Status:     "error",
-				StatusCode: 400,
-				Message:    "Cannot use the uidnumber provided",
-			},
+			nil,
 		},
 
 		// User with different username and Id
@@ -344,169 +340,168 @@ func TestCreateUser(t *testing.T) {
 
 func TestGetUsers(t *testing.T) {
 	users := []User{
-    {
-      Enabled:     "true",
-      Username:    "rutherford",
-      ID:          "rutherford",
-      Email:       "rutherford@example.com",
-      Displayname: "Ernest RutherFord",
-    },
-    {
-      Enabled:     "true",
-      Username:    "thomson",
-      ID:          "thomson",
-      Email:       "thomson@example.com",
-      Displayname: "J. J. Thomson",
-    },
-  }
+		{
+			Enabled:     "true",
+			Username:    "rutherford",
+			ID:          "rutherford",
+			Email:       "rutherford@example.com",
+			Displayname: "Ernest RutherFord",
+		},
+		{
+			Enabled:     "true",
+			Username:    "thomson",
+			ID:          "thomson",
+			Email:       "thomson@example.com",
+			Displayname: "J. J. Thomson",
+		},
+	}
 
-  for _, user := range users {
-    err := createUser(user)
-    if err != nil {
-      t.Fatal(err)
-    }
-  }
+	for _, user := range users {
+		err := createUser(user)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
-  res, err := sendRequest(
-    "GET",
-    "/v1.php/cloud/users?format=json",
-    "",
-    "admin:admin",
-  )
+	res, err := sendRequest(
+		"GET",
+		"/v1.php/cloud/users?format=json",
+		"",
+		"admin:admin",
+	)
 
-  if err != nil {
-    t.Fatal(err)
-  }
+	if err != nil {
+		t.Fatal(err)
+	}
 
-  var response GetUsersResponse
-  if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-    t.Fatal(err)
-  }
+	var response GetUsersResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
 
-  assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-  for _, user := range users {
-    assert.Contains(t, response.Data.Users, user.Username)
-  }
-  cleanUp(t)
+	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+	for _, user := range users {
+		assert.Contains(t, response.Data.Users, user.Username)
+	}
+	cleanUp(t)
 }
 
 func TestGetUsersDefaultUsers(t *testing.T) {
-  res, err := sendRequest(
-    "GET",
-    "/v1.php/cloud/users?format=json",
-    "",
-    "admin:admin",
-  )
+	res, err := sendRequest(
+		"GET",
+		"/v1.php/cloud/users?format=json",
+		"",
+		"admin:admin",
+	)
 
-  if err != nil {
-    t.Fatal(err)
-  }
+	if err != nil {
+		t.Fatal(err)
+	}
 
-  var response GetUsersResponse
-  if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-    t.Fatal(err)
-  }
+	var response GetUsersResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
 
-  assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-  for _, user := range DefaultUsers {
-    assert.Contains(t, response.Data.Users, user)
-  }
-  cleanUp(t)
+	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+	for _, user := range DefaultUsers {
+		assert.Contains(t, response.Data.Users, user)
+	}
+	cleanUp(t)
 }
 
 func TestGetUserDefaultUser(t *testing.T) {
-  for _, user := range DefaultUsers {
-    res, err := sendRequest(
-      "GET",
-      fmt.Sprintf("/v1.php/cloud/user/%s?format=json", user),
-      "",
-      "admin:admin",
-    )
+	for _, user := range DefaultUsers {
+		res, err := sendRequest(
+			"GET",
+			fmt.Sprintf("/v1.php/cloud/user/%s?format=json", user),
+			"",
+			"admin:admin",
+		)
 
-    if err != nil {
-      t.Fatal(err)
-    }
+		if err != nil {
+			t.Fatal(err)
+		}
 
-    var response SingleUserResponse
-    if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-      t.Fatal(err)
-    }
+		var response SingleUserResponse
+		if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
 
-    assertResponseMeta(t, Meta{
-      Status: "error",
-      StatusCode: 998,
-      Message: "not found",
-    }, response.Meta)
-    cleanUp(t)
-  }
+		assertResponseMeta(t, Meta{
+			Status:     "error",
+			StatusCode: 998,
+			Message:    "not found",
+		}, response.Meta)
+		cleanUp(t)
+	}
 }
 
 func TestDeleteUser(t *testing.T) {
-  time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 2)
 	users := []User{
-    {
-      Enabled:     "true",
-      Username:    "rutherford",
-      ID:          "rutherford",
-      Email:       "rutherford@example.com",
-      Displayname: "Ernest RutherFord",
-    },
-    {
-      Enabled:     "true",
-      Username:    "thomson",
-      ID:          "thomson",
-      Email:       "thomson@example.com",
-      Displayname: "J. J. Thomson",
-    },
-  }
+		{
+			Enabled:     "true",
+			Username:    "rutherford",
+			ID:          "rutherford",
+			Email:       "rutherford@example.com",
+			Displayname: "Ernest RutherFord",
+		},
+		{
+			Enabled:     "true",
+			Username:    "thomson",
+			ID:          "thomson",
+			Email:       "thomson@example.com",
+			Displayname: "J. J. Thomson",
+		},
+	}
 
-  for _, user := range users {
-    err := createUser(user)
-    if err != nil {
-      t.Fatal(err)
-    }
-  }
+	for _, user := range users {
+		err := createUser(user)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
-  res, err := sendRequest(
-    "DELETE",
-    "/v1.php/cloud/users/rutherford?format=json",
-    "",
-    "admin:admin",
-  )
+	res, err := sendRequest(
+		"DELETE",
+		"/v1.php/cloud/users/rutherford?format=json",
+		"",
+		"admin:admin",
+	)
 
-  if err != nil {
-    t.Fatal(err)
-  }
+	if err != nil {
+		t.Fatal(err)
+	}
 
-  var response DeleteUserRespone
-  if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-    t.Fatal(err)
-  }
+	var response DeleteUserRespone
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
 
-  assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-  assert.Empty(t, response.Data)
+	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+	assert.Empty(t, response.Data)
 
-  // Check deleted user doesn't exist and the other user does
-  res, err = sendRequest(
-    "GET",
-    "/v1.php/cloud/users?format=json",
-    "",
-    "admin:admin",
-  )
+	// Check deleted user doesn't exist and the other user does
+	res, err = sendRequest(
+		"GET",
+		"/v1.php/cloud/users?format=json",
+		"",
+		"admin:admin",
+	)
 
-  if err != nil {
-    t.Fatal(err)
-  }
+	if err != nil {
+		t.Fatal(err)
+	}
 
-  var usersResponse GetUsersResponse
-  if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
-    t.Fatal(err)
-  }
+	var usersResponse GetUsersResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
+		t.Fatal(err)
+	}
 
-  assert.True(t, usersResponse.Meta.Success(), "The response was expected to be successful but was not")
-  assert.Contains(t, usersResponse.Data.Users, "thomson")
-  assert.NotContains(t, usersResponse.Data.Users, "rutherford")
+	assert.True(t, usersResponse.Meta.Success(), "The response was expected to be successful but was not")
+	assert.Contains(t, usersResponse.Data.Users, "thomson")
+	assert.NotContains(t, usersResponse.Data.Users, "rutherford")
 
-  cleanUp(t)
+	cleanUp(t)
 }
-
