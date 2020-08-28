@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -30,6 +31,8 @@ import (
 
 var service = grpc.Service{}
 
+var formats = []string{"json", "xml"}
+
 var DefaultUsers = []string{
 	"4c510ada-c86b-4815-8820-42cdf82c3d51",
 	"820ba2a1-3f54-4538-80a4-2d73007e30bf",
@@ -38,15 +41,25 @@ var DefaultUsers = []string{
 	"f7fbf8c8-139b-4376-b307-cf0a8c2d0d9c",
 }
 
+func getFormatString(format string) string {
+	if format == "json" {
+		return "?format=json"
+	} else if format == "xml" {
+		return ""
+	} else {
+		panic("Invalid format received")
+	}
+}
+
 type User struct {
-	Enabled     string `json:"enabled"`
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	Quota       int    `json:"quota"`
-	UIDNumber   int    `json:"uidnumber"`
-	GIDNumber   int    `json:"gidnumber"`
-	Displayname string `json:"displayname"`
+	Enabled     string `json:"enabled" xml:"enabled"`
+	ID          string `json:"id" xml:"id"`
+	Username    string `json:"username" xml:"username"`
+	Email       string `json:"email" xml:"email"`
+	Quota       int    `json:"quota" xml:"quota"`
+	UIDNumber   int    `json:"uidnumber" xml:"uidnumber"`
+	GIDNumber   int    `json:"gidnumber" xml:"gidnumber"`
+	Displayname string `json:"displayname" xml:"displayname"`
 }
 
 func (u *User) getUserRequestString() string {
@@ -68,9 +81,9 @@ func (u *User) getUserRequestString() string {
 }
 
 type Meta struct {
-	Status     string `json:"status"`
-	StatusCode int    `json:"statuscode"`
-	Message    string `json:"message"`
+	Status     string `json:"status" xml:"status"`
+	StatusCode int    `json:"statuscode" xml:"statuscode"`
+	Message    string `json:"message" xml:"message"`
 }
 
 func (m *Meta) Success() bool {
@@ -82,21 +95,21 @@ func (m *Meta) Success() bool {
 }
 
 type SingleUserResponse struct {
-	Meta Meta `json:"meta"`
-	Data User `json:"data"`
+	Meta Meta `json:"meta" xml:"meta"`
+	Data User `json:"data" xml:"data"`
 }
 
 type GetUsersResponse struct {
-	Meta Meta `json:"meta"`
+	Meta Meta `json:"meta" xml:"meta"`
 	Data struct {
-		Users []string `json:"users"`
-	} `json:"data"`
+		Users []string `json:"users" xml:"users>element"`
+	} `json:"data" xml:"data"`
 }
 
 type DeleteUserRespone struct {
-	Meta Meta `json:"meta"`
+	Meta Meta `json:"meta" xml:"meta"`
 	Data struct {
-	} `json:"data"`
+	} `json:"data" xml:"data"`
 }
 
 func assertResponseMeta(t *testing.T, expected, actual Meta) {
@@ -106,15 +119,15 @@ func assertResponseMeta(t *testing.T, expected, actual Meta) {
 }
 
 //func assertUserSame(t *testing.T, expected, actual User) {
-  //assert.Equal(t, expected.ID, actual.ID, "UserId doesn't match for user %v", expected.Username)
-  //assert.Equal(t, expected.Username, actual.Username, "Username doesn't match for user %v", expected.Username)
-  //assert.Equal(t, expected.Email, actual.Email, "email doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.ID, actual.ID, "UserId doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.Username, actual.Username, "Username doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.Email, actual.Email, "email doesn't match for user %v", expected.Username)
 
-  //assert.Equal(t, expected.Enabled, actual.Enabled, "enabled doesn't match for user %v", expected.Username)
-  //assert.Equal(t, expected.Quota, actual.Quota, "Quota match for user %v", expected.Username)
-  //assert.Equal(t, expected.UIDNumber, actual.UIDNumber, "UidNumber doesn't match for user %v", expected.Username)
-  //assert.Equal(t, expected.GIDNumber, actual.GIDNumber, "GIDNumber doesn't match for user %v", expected.Username)
-  //assert.Equal(t, expected.Displayname, actual.Displayname, "displayname doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.Enabled, actual.Enabled, "enabled doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.Quota, actual.Quota, "Quota match for user %v", expected.Username)
+//assert.Equal(t, expected.UIDNumber, actual.UIDNumber, "UidNumber doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.GIDNumber, actual.GIDNumber, "GIDNumber doesn't match for user %v", expected.Username)
+//assert.Equal(t, expected.Displayname, actual.Displayname, "displayname doesn't match for user %v", expected.Username)
 //}
 
 const dataPath = "./accounts-store"
@@ -235,7 +248,7 @@ func createUser(u User) error {
 	)
 
 	if err != nil {
-    return err
+		return err
 	}
 	return nil
 }
@@ -300,28 +313,38 @@ func TestCreateUser(t *testing.T) {
 		},
 	}
 
-	for _, data := range testData {
-		res, err := sendRequest(
-			"POST",
-			"/v1.php/cloud/users?format=json",
-			data.user.getUserRequestString(),
-			"admin:admin",
-		)
+	for _, format := range formats {
+		for _, data := range testData {
+			formatpart := getFormatString(format)
+			res, err := sendRequest(
+				"POST",
+				"/v1.php/cloud/users"+formatpart,
+				data.user.getUserRequestString(),
+				"admin:admin",
+			)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		var response SingleUserResponse
-		if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-			t.Fatal(err)
-		}
+			var response SingleUserResponse
 
-		if data.err == nil {
-			assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-			// assertUserSame(t, data.user, response.Data)
-		} else {
-			assertResponseMeta(t, *data.err, response.Meta)
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if data.err == nil {
+				assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+				// assertUserSame(t, data.user, response.Data)
+			} else {
+				assertResponseMeta(t, *data.err, response.Meta)
+			}
 		}
 	}
 
@@ -346,65 +369,18 @@ func TestGetUsers(t *testing.T) {
 		},
 	}
 
-	for _, user := range users {
-		err := createUser(user)
-		if err != nil {
-			t.Fatal(err)
+	for _, format := range formats {
+		for _, user := range users {
+			err := createUser(user)
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
 
-	res, err := sendRequest(
-		"GET",
-		"/v1.php/cloud/users?format=json",
-		"",
-		"admin:admin",
-	)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var response GetUsersResponse
-	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-
-	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-	for _, user := range users {
-		assert.Contains(t, response.Data.Users, user.Username)
-	}
-	cleanUp(t)
-}
-
-func TestGetUsersDefaultUsers(t *testing.T) {
-	res, err := sendRequest(
-		"GET",
-		"/v1.php/cloud/users?format=json",
-		"",
-		"admin:admin",
-	)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var response GetUsersResponse
-	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-
-	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-	for _, user := range DefaultUsers {
-		assert.Contains(t, response.Data.Users, user)
-	}
-	cleanUp(t)
-}
-
-func TestGetUserDefaultUser(t *testing.T) {
-	for _, user := range DefaultUsers {
+		formatpart := getFormatString(format)
 		res, err := sendRequest(
 			"GET",
-			fmt.Sprintf("/v1.php/cloud/user/%s?format=json", user),
+			"/v1.php/cloud/users"+formatpart,
 			"",
 			"admin:admin",
 		)
@@ -413,17 +389,92 @@ func TestGetUserDefaultUser(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var response SingleUserResponse
-		if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		var response GetUsersResponse
+
+		if format == "json" {
+			if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+		for _, user := range users {
+			assert.Contains(t, response.Data.Users, user.Username)
+		}
+		cleanUp(t)
+	}
+}
+
+func TestGetUsersDefaultUsers(t *testing.T) {
+	for _, format := range formats {
+		formatpart := getFormatString(format)
+		res, err := sendRequest(
+			"GET",
+			"/v1.php/cloud/users"+formatpart,
+			"",
+			"admin:admin",
+		)
+
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		assertResponseMeta(t, Meta{
-			Status:     "error",
-			StatusCode: 998,
-			Message:    "not found",
-		}, response.Meta)
+		var response GetUsersResponse
+		if format == "json" {
+			if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+		for _, user := range DefaultUsers {
+			assert.Contains(t, response.Data.Users, user)
+		}
 		cleanUp(t)
+	}
+}
+
+func TestGetUserDefaultUser(t *testing.T) {
+	for _, format := range formats {
+		formatpart := getFormatString(format)
+		for _, user := range DefaultUsers {
+			res, err := sendRequest(
+				"GET",
+				fmt.Sprintf("/v1.php/cloud/user/%s", user)+formatpart,
+				"",
+				"admin:admin",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var response SingleUserResponse
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			assertResponseMeta(t, Meta{
+				Status:     "error",
+				StatusCode: 998,
+				Message:    "not found",
+			}, response.Meta)
+			cleanUp(t)
+		}
 	}
 }
 
@@ -446,52 +497,124 @@ func TestDeleteUser(t *testing.T) {
 		},
 	}
 
-	for _, user := range users {
-		err := createUser(user)
+	for _, format := range formats {
+		for _, user := range users {
+			err := createUser(user)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		formatpart := getFormatString(format)
+		res, err := sendRequest(
+			"DELETE",
+			"/v1.php/cloud/users/rutherford"+formatpart,
+			"",
+			"admin:admin",
+		)
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		var response DeleteUserRespone
+		if format == "json" {
+			if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
+		assert.Empty(t, response.Data)
+
+		// Check deleted user doesn't exist and the other user does
+		res, err = sendRequest(
+			"GET",
+			"/v1.php/cloud/users?format=json",
+			"",
+			"admin:admin",
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var usersResponse GetUsersResponse
+		if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.True(t, usersResponse.Meta.Success(), "The response was expected to be successful but was not")
+		assert.Contains(t, usersResponse.Data.Users, "thomson")
+		assert.NotContains(t, usersResponse.Data.Users, "rutherford")
+
+		cleanUp(t)
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	time.Sleep(time.Second * 2)
+	users := []User{
+		{
+			Enabled:     "true",
+			Username:    "rutherford",
+			ID:          "rutherford",
+			Email:       "rutherford@example.com",
+			Displayname: "Ernest RutherFord",
+		},
+		{
+			Enabled:     "true",
+			Username:    "thomson",
+			ID:          "thomson",
+			Email:       "thomson@example.com",
+			Displayname: "J. J. Thomson",
+		},
 	}
 
-	res, err := sendRequest(
-		"DELETE",
-		"/v1.php/cloud/users/rutherford?format=json",
-		"",
-		"admin:admin",
-	)
+	for _, format := range formats {
+		formatpart := getFormatString(format)
+		for _, user := range users {
+			err := createUser(user)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 
-	if err != nil {
-		t.Fatal(err)
+		res, err := sendRequest(
+			"PUT",
+			"/v1.php/cloud/users/rutherford"+formatpart,
+			"username=chadwick&displayname=James%20Chadwick",
+			"admin:admin",
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var response struct {
+			Meta Meta `json:"meta" xml:"meta"`
+		}
+
+		if format == "json" {
+			if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		assertResponseMeta(t, Meta{
+			Status:     "error",
+			StatusCode: 103,
+			Message:    "unknown key ''",
+		}, response.Meta)
+
+		cleanUp(t)
 	}
-
-	var response DeleteUserRespone
-	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-
-	assert.True(t, response.Meta.Success(), "The response was expected to be successful but was not")
-	assert.Empty(t, response.Data)
-
-	// Check deleted user doesn't exist and the other user does
-	res, err = sendRequest(
-		"GET",
-		"/v1.php/cloud/users?format=json",
-		"",
-		"admin:admin",
-	)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var usersResponse GetUsersResponse
-	if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
-		t.Fatal(err)
-	}
-
-	assert.True(t, usersResponse.Meta.Success(), "The response was expected to be successful but was not")
-	assert.Contains(t, usersResponse.Data.Users, "thomson")
-	assert.NotContains(t, usersResponse.Data.Users, "rutherford")
-
-	cleanUp(t)
 }
