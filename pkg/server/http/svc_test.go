@@ -28,10 +28,6 @@ import (
 	accountsSvc "github.com/owncloud/ocis-accounts/pkg/service/v0"
 )
 
-type Response interface {
-	Success() bool
-}
-
 var service = grpc.Service{}
 
 var DefaultUsers = []string{
@@ -97,13 +93,6 @@ type GetUsersResponse struct {
 	} `json:"data"`
 }
 
-type GetUsersResponses struct {
-	Meta Meta `json:"meta"`
-	Data struct {
-		Users []User `json:"users"`
-	} `json:"data"`
-}
-
 type DeleteUserRespone struct {
 	Meta Meta `json:"meta"`
 	Data struct {
@@ -116,17 +105,17 @@ func assertResponseMeta(t *testing.T, expected, actual Meta) {
 	assert.Equal(t, expected.Message, actual.Message, "The Message of response doesn't matches")
 }
 
-func assertUserSame(t *testing.T, expected, actual User) {
-	assert.Equal(t, expected.ID, actual.ID, "UserId doesn't match for user %v", expected.Username)
-	assert.Equal(t, expected.Username, actual.Username, "Username doesn't match for user %v", expected.Username)
-	assert.Equal(t, expected.Email, actual.Email, "email doesn't match for user %v", expected.Username)
+//func assertUserSame(t *testing.T, expected, actual User) {
+  //assert.Equal(t, expected.ID, actual.ID, "UserId doesn't match for user %v", expected.Username)
+  //assert.Equal(t, expected.Username, actual.Username, "Username doesn't match for user %v", expected.Username)
+  //assert.Equal(t, expected.Email, actual.Email, "email doesn't match for user %v", expected.Username)
 
-	assert.Equal(t, expected.Enabled, actual.Enabled, "enabled doesn't match for user %v", expected.Username)
-	assert.Equal(t, expected.Quota, actual.Quota, "Quota match for user %v", expected.Username)
-	assert.Equal(t, expected.UIDNumber, actual.UIDNumber, "UidNumber doesn't match for user %v", expected.Username)
-	assert.Equal(t, expected.GIDNumber, actual.GIDNumber, "GIDNumber doesn't match for user %v", expected.Username)
-	assert.Equal(t, expected.Displayname, actual.Displayname, "displayname doesn't match for user %v", expected.Username)
-}
+  //assert.Equal(t, expected.Enabled, actual.Enabled, "enabled doesn't match for user %v", expected.Username)
+  //assert.Equal(t, expected.Quota, actual.Quota, "Quota match for user %v", expected.Username)
+  //assert.Equal(t, expected.UIDNumber, actual.UIDNumber, "UidNumber doesn't match for user %v", expected.Username)
+  //assert.Equal(t, expected.GIDNumber, actual.GIDNumber, "GIDNumber doesn't match for user %v", expected.Username)
+  //assert.Equal(t, expected.Displayname, actual.Displayname, "displayname doesn't match for user %v", expected.Username)
+//}
 
 const dataPath = "./accounts-store"
 
@@ -246,6 +235,7 @@ func createUser(u User) error {
 	)
 
 	if err != nil {
+    return err
 	}
 	return nil
 }
