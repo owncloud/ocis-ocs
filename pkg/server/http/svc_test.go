@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -64,21 +65,33 @@ type User struct {
 }
 
 func (u *User) getUserRequestString() string {
-	res := fmt.Sprintf("userid=%v&username=%v&email=%v", u.ID, u.Username, u.Email)
+	res := url.Values{}
+
+	if u.ID != "" {
+		res.Add("userid", u.ID)
+	}
+
+	if u.Username != "" {
+		res.Add("username", u.Username)
+	}
+
+	if u.Email != "" {
+		res.Add("email", u.Email)
+	}
 
 	if u.Displayname != "" {
-		res = res + "&displayname=" + fmt.Sprint(u.Displayname)
+		res.Add("displayname", u.Displayname)
 	}
 
 	if u.UIDNumber != 0 {
-		res = res + "&uidnumber=" + fmt.Sprint(u.UIDNumber)
+		res.Add("uidnumber", fmt.Sprint(u.UIDNumber))
 	}
 
 	if u.GIDNumber != 0 {
-		res = res + "&gidnumber=" + fmt.Sprint(u.GIDNumber)
+		res.Add("gidnumber", fmt.Sprint(u.GIDNumber))
 	}
 
-	return res
+	return res.Encode()
 }
 
 type Meta struct {
@@ -88,19 +101,19 @@ type Meta struct {
 }
 
 func (m *Meta) Success(ocsVersion string) bool {
-  if !(ocsVersion == "v1.php" || ocsVersion == "v2.php") {
-    return false
-  }
-  if m.Status != "ok" {
-    return false
-  }
-	if (ocsVersion == "v1.php" && m.StatusCode != 100) {
+	if !(ocsVersion == "v1.php" || ocsVersion == "v2.php") {
 		return false
-	} else if (ocsVersion == "v2.php" && m.StatusCode != 200) {
-    return false
-  } else {
-	  return true
-  }
+	}
+	if m.Status != "ok" {
+		return false
+	}
+	if ocsVersion == "v1.php" && m.StatusCode != 100 {
+		return false
+	} else if ocsVersion == "v2.php" && m.StatusCode != 200 {
+		return false
+	} else {
+		return true
+	}
 }
 
 type SingleUserResponse struct {
@@ -320,70 +333,151 @@ func TestCreateUser(t *testing.T) {
 				Message:    "preferred_name 'schrödinger' must be at least the local part of an email",
 			},
 		},
+
+		// User with different userid and email
+		{
+			User{
+				Enabled:     "true",
+				Username:    "planck",
+				ID:          "planck",
+				Email:       "max@example.com",
+				Displayname: "Max Planck",
+			},
+			nil,
+		},
+
+		// User with different userid and email and username
+		{
+			User{
+				Enabled:     "true",
+				Username:    "hisenberg",
+				ID:          "w_hisenberg",
+				Email:       "Werner@example.com",
+				Displayname: "Werner Hisenberg",
+			},
+			nil,
+		},
+
+		// User without displayname
+		{
+			User{
+				Enabled:  "true",
+				Username: "oppenheimer",
+				ID:       "oppenheimer",
+				Email:    "robert@example.com",
+			},
+			nil,
+		},
+
+		// User without email
+		{
+			User{
+				Enabled:  "true",
+				Username: "chadwick",
+				ID:       "chadwick",
+			},
+			&Meta{
+				Status:     "error",
+				StatusCode: 400,
+				Message:    "mail '' must be a valid email",
+			},
+		},
+
+		// User without username
+		{
+			User{
+				Enabled: "true",
+				ID:      "chadwick",
+				Email:   "james@example.com",
+			},
+			&Meta{
+				Status:     "error",
+				StatusCode: 400,
+				Message:    "preferred_name '' must be at least the local part of an email",
+			},
+		},
+
+		// User without userid
+		{
+			User{
+				Enabled:  "true",
+				Username: "chadwick",
+				Email:    "james@example.com",
+			},
+			nil,
+		},
 	}
 
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      for _, data := range testData {
-        formatpart := getFormatString(format)
-        res, err := sendRequest(
-          "POST",
-          fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
-          data.user.getUserRequestString(),
-          "admin:admin",
-        )
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			for _, data := range testData {
+				formatpart := getFormatString(format)
+				fmt.Println(data.user.getUserRequestString())
+				res, err := sendRequest(
+					"POST",
+					fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
+					data.user.getUserRequestString(),
+					"admin:admin",
+				)
 
-        if err != nil {
-          t.Fatal(err)
-        }
+				if err != nil {
+					t.Fatal(err)
+				}
 
-        var response SingleUserResponse
+				fmt.Println(res.Body.String())
+				fmt.Println()
+				fmt.Println()
+				fmt.Println()
 
-        if format == "json" {
-          if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-            t.Fatal(err)
-          }
-        } else {
-          if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-            t.Fatal(err)
-          }
-        }
+				var response SingleUserResponse
 
-        if data.err == nil {
-          assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
-          // assertUserSame(t, data.user, response.Data)
-        } else {
-          assertResponseMeta(t, *data.err, response.Meta)
-        }
+				if format == "json" {
+					if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+						t.Fatal(err)
+					}
+				}
 
-        res, err = sendRequest(
-          "GET",
-          "/v1.php/cloud/users?format=json",
-          "",
-          "admin:admin",
-        )
+				if data.err == nil {
+					assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
+					// assertUserSame(t, data.user, response.Data)
+				} else {
+					assertResponseMeta(t, *data.err, response.Meta)
+				}
 
-        if err != nil {
-          t.Fatal(err)
-        }
+				res, err = sendRequest(
+					"GET",
+					"/v1.php/cloud/users?format=json",
+					"",
+					"admin:admin",
+				)
 
-        var usersResponse GetUsersResponse
+				if err != nil {
+					t.Fatal(err)
+				}
 
-        if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
-          t.Fatal(err)
-        }
+				var usersResponse GetUsersResponse
 
-        assert.True(t, usersResponse.Meta.Success("v1.php"), "The response was expected to be successful but was not")
+				if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
+					t.Fatal(err)
+				}
 
-        if data.err == nil {
-          assert.Contains(t, usersResponse.Data.Users, data.user.ID)
-        } else {
-          assert.NotContains(t, usersResponse.Data.Users, data.user.Username)
-        }
-        cleanUp(t)
-      }
-    }
-  }
+				assert.True(t, usersResponse.Meta.Success("v1.php"), "The response was expected to be successful but was not")
+
+				if data.err == nil && data.user.ID != "" {
+					assert.Contains(t, usersResponse.Data.Users, data.user.ID)
+				} else if data.err == nil && data.user.ID == "" {
+					assert.NotEmpty(t, usersResponse.Data.Users)
+				} else {
+					assert.NotContains(t, usersResponse.Data.Users, data.user.ID)
+				}
+			}
+			cleanUp(t)
+		}
+	}
 }
 
 func TestGetUsers(t *testing.T) {
@@ -404,121 +498,121 @@ func TestGetUsers(t *testing.T) {
 		},
 	}
 
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      for _, user := range users {
-        err := createUser(user)
-        if err != nil {
-          t.Fatal(err)
-        }
-      }
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			for _, user := range users {
+				err := createUser(user)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      formatpart := getFormatString(format)
-      res, err := sendRequest(
-        "GET",
-        fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
-        "",
-        "admin:admin",
-      )
+			formatpart := getFormatString(format)
+			res, err := sendRequest(
+				"GET",
+				fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
+				"",
+				"admin:admin",
+			)
 
-      if err != nil {
-        t.Fatal(err)
-      }
+			if err != nil {
+				t.Fatal(err)
+			}
 
-      var response GetUsersResponse
+			var response GetUsersResponse
 
-      if format == "json" {
-        if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      } else {
-        if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      }
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
-      for _, user := range users {
-        assert.Contains(t, response.Data.Users, user.Username)
-      }
-      cleanUp(t)
-    }
-  }
+			assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
+			for _, user := range users {
+				assert.Contains(t, response.Data.Users, user.Username)
+			}
+			cleanUp(t)
+		}
+	}
 }
 
 func TestGetUsersDefaultUsers(t *testing.T) {
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      formatpart := getFormatString(format)
-      res, err := sendRequest(
-        "GET",
-        fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
-        "",
-        "admin:admin",
-      )
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			formatpart := getFormatString(format)
+			res, err := sendRequest(
+				"GET",
+				fmt.Sprintf("/%v/cloud/users%v", ocsVersion, formatpart),
+				"",
+				"admin:admin",
+			)
 
-      if err != nil {
-        t.Fatal(err)
-      }
+			if err != nil {
+				t.Fatal(err)
+			}
 
-      var response GetUsersResponse
+			var response GetUsersResponse
 
-      if format == "json" {
-        if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      } else {
-        if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      }
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
-      assert.Empty(t, response.Data.Users)
-      // for _, user := range DefaultUsers {
-      //   assert.Contains(t, response.Data.Users, user)
-      // }
-      cleanUp(t)
-    }
-  }
+			assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
+			assert.Empty(t, response.Data.Users)
+			// for _, user := range DefaultUsers {
+			//   assert.Contains(t, response.Data.Users, user)
+			// }
+			cleanUp(t)
+		}
+	}
 }
 
 func TestGetUserDefaultUser(t *testing.T) {
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      formatpart := getFormatString(format)
-      for _, user := range DefaultUsers {
-        res, err := sendRequest(
-          "GET",
-          fmt.Sprintf("/%s/cloud/user/%s%s", ocsVersion, user, formatpart),
-          "",
-          "admin:admin",
-        )
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			formatpart := getFormatString(format)
+			for _, user := range DefaultUsers {
+				res, err := sendRequest(
+					"GET",
+					fmt.Sprintf("/%s/cloud/user/%s%s", ocsVersion, user, formatpart),
+					"",
+					"admin:admin",
+				)
 
-        if err != nil {
-          t.Fatal(err)
-        }
+				if err != nil {
+					t.Fatal(err)
+				}
 
-        var response SingleUserResponse
-        if format == "json" {
-          if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-            t.Fatal(err)
-          }
-        } else {
-          if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-            t.Fatal(err)
-          }
-        }
+				var response SingleUserResponse
+				if format == "json" {
+					if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+						t.Fatal(err)
+					}
+				}
 
-        assertResponseMeta(t, Meta{
-          Status:     "error",
-          StatusCode: 998,
-          Message:    "not found",
-        }, response.Meta)
-        cleanUp(t)
-      }
-    }
-  }
+				assertResponseMeta(t, Meta{
+					Status:     "error",
+					StatusCode: 998,
+					Message:    "not found",
+				}, response.Meta)
+				cleanUp(t)
+			}
+		}
+	}
 }
 
 func TestDeleteUser(t *testing.T) {
@@ -540,65 +634,65 @@ func TestDeleteUser(t *testing.T) {
 		},
 	}
 
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      for _, user := range users {
-        err := createUser(user)
-        if err != nil {
-          t.Fatal(err)
-        }
-      }
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			for _, user := range users {
+				err := createUser(user)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      formatpart := getFormatString(format)
-      res, err := sendRequest(
-        "DELETE",
-        fmt.Sprintf("/%s/cloud/users/rutherford%s", ocsVersion, formatpart),
-        "",
-        "admin:admin",
-      )
+			formatpart := getFormatString(format)
+			res, err := sendRequest(
+				"DELETE",
+				fmt.Sprintf("/%s/cloud/users/rutherford%s", ocsVersion, formatpart),
+				"",
+				"admin:admin",
+			)
 
-      if err != nil {
-        t.Fatal(err)
-      }
+			if err != nil {
+				t.Fatal(err)
+			}
 
-      var response DeleteUserRespone
-      if format == "json" {
-        if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      } else {
-        if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      }
+			var response DeleteUserRespone
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
-      assert.Empty(t, response.Data)
+			assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
+			assert.Empty(t, response.Data)
 
-      // Check deleted user doesn't exist and the other user does
-      res, err = sendRequest(
-        "GET",
-        "/v1.php/cloud/users?format=json",
-        "",
-        "admin:admin",
-      )
+			// Check deleted user doesn't exist and the other user does
+			res, err = sendRequest(
+				"GET",
+				"/v1.php/cloud/users?format=json",
+				"",
+				"admin:admin",
+			)
 
-      if err != nil {
-        t.Fatal(err)
-      }
+			if err != nil {
+				t.Fatal(err)
+			}
 
-      var usersResponse GetUsersResponse
-      if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
-        t.Fatal(err)
-      }
+			var usersResponse GetUsersResponse
+			if err := json.Unmarshal(res.Body.Bytes(), &usersResponse); err != nil {
+				t.Fatal(err)
+			}
 
-      assert.True(t, usersResponse.Meta.Success("v1.php"), "The response was expected to be successful but was not")
-      assert.Contains(t, usersResponse.Data.Users, "thomson")
-      assert.NotContains(t, usersResponse.Data.Users, "rutherford")
+			assert.True(t, usersResponse.Meta.Success("v1.php"), "The response was expected to be successful but was not")
+			assert.Contains(t, usersResponse.Data.Users, "thomson")
+			assert.NotContains(t, usersResponse.Data.Users, "rutherford")
 
-      cleanUp(t)
-    }
-  }
+			cleanUp(t)
+		}
+	}
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -620,48 +714,48 @@ func TestUpdateUser(t *testing.T) {
 		},
 	}
 
-  for _, ocsVersion := range ocsVersions {
-    for _, format := range formats {
-      formatpart := getFormatString(format)
-      for _, user := range users {
-        err := createUser(user)
-        if err != nil {
-          t.Fatal(err)
-        }
-      }
+	for _, ocsVersion := range ocsVersions {
+		for _, format := range formats {
+			formatpart := getFormatString(format)
+			for _, user := range users {
+				err := createUser(user)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      res, err := sendRequest(
-        "PUT",
-        fmt.Sprintf("/%s/cloud/users/rutherford%s", ocsVersion, formatpart),
-        "username=chadwick&displayname=James%20Chadwick",
-        "admin:admin",
-      )
+			res, err := sendRequest(
+				"PUT",
+				fmt.Sprintf("/%s/cloud/users/rutherford%s", ocsVersion, formatpart),
+				"username=chadwick&displayname=James%20Chadwick",
+				"admin:admin",
+			)
 
-      if err != nil {
-        t.Fatal(err)
-      }
+			if err != nil {
+				t.Fatal(err)
+			}
 
-      var response struct {
-        Meta Meta `json:"meta" xml:"meta"`
-      }
+			var response struct {
+				Meta Meta `json:"meta" xml:"meta"`
+			}
 
-      if format == "json" {
-        if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      } else {
-        if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
-          t.Fatal(err)
-        }
-      }
+			if format == "json" {
+				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := xml.Unmarshal(res.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-      assertResponseMeta(t, Meta{
-        Status:     "error",
-        StatusCode: 103,
-        Message:    "unknown key ''",
-      }, response.Meta)
+			assertResponseMeta(t, Meta{
+				Status:     "error",
+				StatusCode: 103,
+				Message:    "unknown key ''",
+			}, response.Meta)
 
-      cleanUp(t)
-    }
-  }
+			cleanUp(t)
+		}
+	}
 }
