@@ -27,11 +27,11 @@ import (
 	accountsSvc "github.com/owncloud/ocis-accounts/pkg/service/v0"
 )
 
-var Service = grpc.Service{}
-var OcsVersions = []string{"v1.php", "v2.php"}
-var Formats = []string{"json", "xml"}
+var services = grpc.Service{}
+var ocsVersion = []string{"v1.php", "v2.php"}
+var format = []string{"json", "xml"}
 
-func get_Format_String(format string) string {
+func getFormatStringg(format string) string {
 	if format == "json" {
 		return "?format=json"
 	} else if format == "xml" {
@@ -61,13 +61,13 @@ func (g *Group) getGroupRequestString() string {
 	return res
 }
 
-type _Meta_ struct {
+type meta struct {
 	Status     string `json:"status" xml:"status"`
 	StatusCode int    `json:"statuscode" xml:"statuscode"`
 	Message    string `json:"message" xml:"message"`
 }
 
-func (m *_Meta_) Success(ocsVersion string) bool {
+func (m *meta) Success(ocsVersion string) bool {
 	if !(ocsVersion == "v1.php" || ocsVersion == "v2.php") {
 		return false
 	}
@@ -84,31 +84,31 @@ func (m *_Meta_) Success(ocsVersion string) bool {
 }
 
 type SingleGroupResponse struct {
-	Meta _Meta_ `json:"meta" xml:"meta"`
+	Meta meta `json:"meta" xml:"meta"`
 	Data Group `json:"data" xml:"data"`
 }
 
 type GetGroupsResponse struct {
-	Meta _Meta_ `json:"meta" xml:"meta"`
+	Meta meta `json:"meta" xml:"meta"`
 	Data struct {
 		Groups []string `json:"groups" xml:"groups>element"`
 	} `json:"data" xml:"data"`
 }
 
 type DeleteGroupRespone struct {
-	Meta _Meta_ `json:"meta" xml:"meta"`
+	Meta meta `json:"meta" xml:"meta"`
 	Data struct {
 	} `json:"data" xml:"data"`
 }
 
-func assert_Response_Meta(t *testing.T, expected, actual _Meta_) {
+func AssertRespMeta(t *testing.T, expected, actual meta) {
 	assert.Equal(t, expected.Status, actual.Status, "The status of response doesn't match")
 	assert.Equal(t, expected.StatusCode, actual.StatusCode, "The Status code of response doesn't match")
 	assert.Equal(t, expected.Message, actual.Message, "The Message of response doesn't match")
 }
 
 func createGroup(g Group) error {
-	_, err := send_Request(
+	_, err := sendReq(
 		"POST",
 		"/v1.php/cloud/groups?format=json",
 		g.getGroupRequestString(),
@@ -123,23 +123,23 @@ func createGroup(g Group) error {
 func TestCreateGroup(t *testing.T) {
 	testData := []struct {
 		group Group
-		err  *_Meta_
+		err  *meta
 	}{
 		// A simple group
 		{
 			Group{
-				Enabled:     "true",
-			    GroupID: "simpleGroup",
-			    UserID: "testUser",
+				Enabled: "true",
+				GroupID: "simpleGroup",
+				UserID:  "testUser",
 			},
 			nil,
 		},
 	}
-	for _, ocsVersion := range OcsVersions {
-		for _, format := range Formats {
+	for _, ocsVersion := range ocsVersion {
+		for _, format := range format {
 			for _, data := range testData {
-				formatpart := get_Format_String(format)
-				res, err := send_Request(
+				formatpart := getFormatStringg(format)
+				res, err := sendReq(
 					"POST",
 					fmt.Sprintf("/%v/cloud/groups%v", ocsVersion, formatpart),
 					data.group.getGroupRequestString(),
@@ -165,10 +165,10 @@ func TestCreateGroup(t *testing.T) {
 				if data.err == nil {
 					assert.True(t, response.Meta.Success(ocsVersion), "The response was expected to be successful but was not")
 				} else {
-					assert_Response_Meta(t, *data.err, response.Meta)
+					AssertRespMeta(t, *data.err, response.Meta)
 				}
 
-				res, err = send_Request(
+				res, err = sendReq(
 					"GET",
 					"/v1.php/cloud/groups?format=json",
 					"",
@@ -214,8 +214,8 @@ func TestDeleteGroup(t *testing.T) {
 		},
 	}
 
-	for _, ocsVersion := range OcsVersions {
-		for _, format := range Formats {
+	for _, ocsVersion := range ocsVersion {
+		for _, format := range format {
 			for _, group := range groups {
 				err := createGroup(group)
 				if err != nil {
@@ -223,8 +223,8 @@ func TestDeleteGroup(t *testing.T) {
 				}
 			}
 
-			formatpart := get_Format_String(format)
-			res, err := send_Request(
+			formatpart := getFormatStringg(format)
+			res, err := sendReq(
 				"DELETE",
 				fmt.Sprintf("/%s/cloud/groups/simpleGroup%s", ocsVersion, formatpart),
 				"",
@@ -250,7 +250,7 @@ func TestDeleteGroup(t *testing.T) {
 			assert.Empty(t, response.Data)
 
 			// Check deleted group doesn't exist and the other group does
-			res, err = send_Request(
+			res, err = sendReq(
 				"GET",
 				"/v1.php/cloud/groups?format=json",
 				"",
@@ -276,7 +276,7 @@ func TestDeleteGroup(t *testing.T) {
 }
 
 func init() {
-	Service = grpc.NewService(
+	services = grpc.NewService(
 		grpc.Namespace("com.owncloud.api"),
 		grpc.Name("accounts"),
 		grpc.Address("localhost:9180"),
@@ -293,16 +293,16 @@ func init() {
 		log.Fatalf("Could not create new service")
 	}
 
-	err = accountsProto.RegisterAccountsServiceHandler(Service.Server(), hdlr)
+	err = accountsProto.RegisterAccountsServiceHandler(services.Server(), hdlr)
 	if err != nil {
 		log.Fatal("could not register the Accounts handler")
 	}
-	err = accountsProto.RegisterGroupsServiceHandler(Service.Server(), hdlr)
+	err = accountsProto.RegisterGroupsServiceHandler(services.Server(), hdlr)
 	if err != nil {
 		log.Fatal("could not register the Groups handler")
 	}
 
-	err = Service.Server().Start()
+	err = services.Server().Start()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func clean(t *testing.T) {
 }
 
 func deleteGroup(t *testing.T, id string) (*empty.Empty, error) {
-	client := Service.Client()
+	client := services.Client()
 	cl := accountsProto.NewGroupsService("com.owncloud.api.accounts", client)
 
 	req := &accountsProto.DeleteGroupRequest{Id: id}
@@ -330,7 +330,7 @@ func deleteGroup(t *testing.T, id string) (*empty.Empty, error) {
 	return res, err
 }
 
-func get_Service() svc.Service {
+func GetService() svc.Service {
 	c := &config.Config{
 		HTTP: config.HTTP{
 			Root:      "/",
@@ -352,7 +352,7 @@ func get_Service() svc.Service {
 	return svc
 }
 
-func send_Request(method, endpoint, body, auth string) (*httptest.ResponseRecorder, error) {
+func sendReq(method, endpoint, body, auth string) (*httptest.ResponseRecorder, error) {
 	var reader = strings.NewReader(body)
 	req, err := http.NewRequest(method, endpoint, reader)
 	if err != nil {
@@ -366,7 +366,7 @@ func send_Request(method, endpoint, body, auth string) (*httptest.ResponseRecord
 
 	rr := httptest.NewRecorder()
 
-	service := get_Service()
+	service := GetService()
 	service.ServeHTTP(rr, req)
 
 	return rr, nil
