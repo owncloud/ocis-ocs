@@ -21,11 +21,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/owncloud/ocis-ocs/pkg/config"
-	_ "github.com/owncloud/ocis-ocs/pkg/service/v0"
-	_ "github.com/owncloud/ocis-pkg/v2/log"
-	_ "github.com/stretchr/testify/assert"
-
 	accountsCmd "github.com/owncloud/ocis-accounts/pkg/command"
 	accountsCfg "github.com/owncloud/ocis-accounts/pkg/config"
 	accountsProto "github.com/owncloud/ocis-accounts/pkg/proto/v0"
