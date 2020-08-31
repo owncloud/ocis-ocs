@@ -43,19 +43,19 @@ func getFormatStringg(format string) string {
 
 type Group struct {
 	Enabled string `json:"enabled" xml:"enabled"`
-	UserID  string `json:"userid" xml:"userid"`
-	GroupID string `json:"groupid" xml:"groupid"`
+	UserID   int    `json:"uidnumber" xml:"uidnumber"`
+	GroupID   int    `json:"gidnumber" xml:"gidnumber"`
 }
 
 func (g *Group) getGroupRequestString() string {
 	res := fmt.Sprintf("userid=%v&groupid=%v", g.UserID, g.GroupID)
 
-	if g.UserID != "" {
-		res = res + "&uidnumber=" + fmt.Sprint(g.UserID)
+	if g.UserID != 0 {
+		res = res + "&userid=" + fmt.Sprint(g.UserID)
 	}
 
-	if g.GroupID != "" {
-		res = res + "&gidnumber=" + fmt.Sprint(g.GroupID)
+	if g.GroupID != 0 {
+		res = res + "&groupid=" + fmt.Sprint(g.GroupID)
 	}
 
 	return res
@@ -129,8 +129,8 @@ func TestCreateGroup(t *testing.T) {
 		{
 			Group{
 				Enabled: "true",
-				GroupID: "simpleGroup",
-				UserID:  "testUser",
+				GroupID:  5678,
+				UserID:  123456,
 			},
 			nil,
 		},
@@ -204,13 +204,13 @@ func TestDeleteGroup(t *testing.T) {
 	groups := []Group{
 		{
 			Enabled:     "true",
-			GroupID: "simpleGroup",
-			UserID: "testUser1",
+			GroupID: 98765,
+			UserID: 56789,
 		},
 		{
 			Enabled:     "true",
-			GroupID: "group2",
-			UserID: "testUser2",
+			GroupID: 2222,
+			UserID: 1212,
 		},
 	}
 
@@ -226,7 +226,7 @@ func TestDeleteGroup(t *testing.T) {
 			formatpart := getFormatStringg(format)
 			res, err := sendReq(
 				"DELETE",
-				fmt.Sprintf("/%s/cloud/groups/simpleGroup%s", ocsVersion, formatpart),
+				fmt.Sprintf("/%s/cloud/groups/98765%s", ocsVersion, formatpart),
 				"",
 				"admin:admin",
 			)
@@ -267,8 +267,8 @@ func TestDeleteGroup(t *testing.T) {
 			}
 
 			assert.True(t, groupsResponse.Meta.Success("v1.php"), "The response was expected to be successful but was not")
-			assert.Contains(t, groupsResponse.Data.Groups, "group2")
-			assert.NotContains(t, groupsResponse.Data.Groups, "simpleGroup")
+			assert.Contains(t, groupsResponse.Data.Groups, "1212")
+			assert.NotContains(t, groupsResponse.Data.Groups, "98765")
 
 			clean(t)
 		}
