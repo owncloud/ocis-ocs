@@ -135,9 +135,9 @@ type DeleteUserRespone struct {
 }
 
 func assertResponseMeta(t *testing.T, expected, actual Meta) {
-	assert.Equal(t, expected.Status, actual.Status, "The status of response doesn't matches")
-	assert.Equal(t, expected.StatusCode, actual.StatusCode, "The Status code of response doesn't matches")
-	assert.Equal(t, expected.Message, actual.Message, "The Message of response doesn't matches")
+	assert.Equal(t, expected.Status, actual.Status, "The status of response doesn't match")
+	assert.Equal(t, expected.StatusCode, actual.StatusCode, "The Status code of response doesn't match")
+	assert.Equal(t, expected.Message, actual.Message, "The Message of response doesn't match")
 }
 
 //func assertUserSame(t *testing.T, expected, actual User) {
