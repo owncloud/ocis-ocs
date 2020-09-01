@@ -145,5 +145,19 @@ func ServerWithConfig(cfg *config.Config) []cli.Flag {
 			EnvVars:     []string{"OCS_JWT_SECRET"},
 			Destination: &cfg.TokenManager.JWTSecret,
 		},
+		&cli.StringFlag{
+			Name:        "reva-gateway-address",
+			Value:       "http://localhost:9142",
+			Usage:       "The address of the reva gateway",
+			EnvVars:     []string{"OCS_REVA_GATEWAY_ADDRESS"},
+			Destination: &cfg.Sharing.RevaGatewayAddress,
+		},
+		&cli.StringFlag{
+			Name:        "public-share-url",
+			Value:       "https://localhost:9200",
+			Usage:       "The base url for public share links",
+			EnvVars:     []string{"OCS_PUBLIC_SHARE_URL"},
+			Destination: &cfg.Sharing.PublicURL,
+		},
 	}
 }

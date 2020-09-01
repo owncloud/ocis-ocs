@@ -36,6 +36,12 @@ type TokenManager struct {
 	JWTSecret string
 }
 
+// Sharing defines the available sharing configuration.
+type Sharing struct {
+	RevaGatewayAddress string
+	PublicURL          string
+}
+
 // Config combines all available configuration parts.
 type Config struct {
 	File         string
@@ -44,6 +50,7 @@ type Config struct {
 	HTTP         HTTP
 	Tracing      Tracing
 	TokenManager TokenManager
+	Sharing      Sharing
 }
 
 // New initializes a new configuration with or without defaults.
