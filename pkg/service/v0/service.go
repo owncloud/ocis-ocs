@@ -13,6 +13,7 @@ import (
 	ocsm "github.com/owncloud/ocis-ocs/pkg/middleware"
 	"github.com/owncloud/ocis-ocs/pkg/service/v0/data"
 	"github.com/owncloud/ocis-ocs/pkg/service/v0/response"
+	"github.com/owncloud/ocis-ocs/pkg/service/v0/shares"
 	"github.com/owncloud/ocis-pkg/v2/log"
 )
 
@@ -37,6 +38,9 @@ func NewService(opts ...Option) Service {
 		logger: options.Logger,
 	}
 
+	// TODO error handling and pass gateway address
+	shareSvc, _ := shares.NewService(options.Logger, &options.Config.Sharing)
+
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
 		r.NotFound(svc.NotFound)
 		r.Use(middleware.StripSlashes)
@@ -47,7 +51,7 @@ func NewService(opts ...Option) Service {
 		r.Use(ocsm.OCSFormatCtx) // updates request Accept header according to format=(json|xml) query parameter
 		r.Route("/v{version:(1|2)}.php", func(r chi.Router) {
 			r.Use(response.VersionCtx) // stores version in context
-			r.Route("/apps/files_sharing/api/v1", func(r chi.Router) {})
+			r.Mount("/apps/files_sharing/api/v1", shareSvc.Routes())
 			r.Route("/apps/notifications/api/v1", func(r chi.Router) {})
 			r.Route("/cloud", func(r chi.Router) {
 				r.Route("/capabilities", func(r chi.Router) {})

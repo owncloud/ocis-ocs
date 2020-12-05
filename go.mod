@@ -21,12 +21,15 @@ require (
 	github.com/owncloud/ocis-pkg/v2 v2.4.0
 	github.com/owncloud/ocis-settings v0.3.2-0.20200828130413-0cc0f5bf26fe
 	github.com/owncloud/ocis-store v0.0.0-20200716140351-f9670592fb7b
+	github.com/pkg/errors v0.9.1
 	github.com/restic/calens v0.2.0
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
 	go.opencensus.io v0.22.4
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	google.golang.org/protobuf v1.25.0
+	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
